@@ -94,7 +94,11 @@ ProtoPirateApp *protopirate_app_alloc()
     // Init setting
     app->setting = subghz_setting_alloc();
     app->loaded_file_path = NULL;
-    subghz_setting_load(app->setting, EXT_PATH("subghz/assets/setting_user"));
+    // Fix: Try to load user settings first, fallback to default if failed
+    if (!subghz_setting_load(app->setting, EXT_PATH("subghz/assets/setting_user"))) {
+        FURI_LOG_W(TAG, "Failed to load setting_user, falling back to default setting.txt");
+        subghz_setting_load(app->setting, EXT_PATH("subghz/assets/setting.txt"));
+    }
 
     // Load saved settings
     ProtoPirateSettings settings;

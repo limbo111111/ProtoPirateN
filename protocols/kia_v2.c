@@ -322,26 +322,47 @@ SubGhzProtocolStatus kia_protocol_decoder_v2_serialize(
 
     SubGhzProtocolStatus ret = SubGhzProtocolStatusError;
 
-    ret = subghz_block_generic_serialize(&instance->generic, flipper_format, preset);
+    do {
+        if(preset) {
+            if(!flipper_format_write_uint32(flipper_format, "Frequency", &preset->frequency, 1)) break;
+            const char* preset_name = furi_string_get_cstr(preset->name);
+            if(!preset_name || preset_name[0] == '\0') {
+                preset_name = "AM650"; // Default fallback
+            }
+            if(!flipper_format_write_string_cstr(flipper_format, "Preset", preset_name)) break;
+        } else {
+            uint32_t default_freq = 433920000;
+            if(!flipper_format_write_uint32(flipper_format, "Frequency", &default_freq, 1)) break;
+            if(!flipper_format_write_string_cstr(flipper_format, "Preset", "AM650")) break;
+        }
 
-    if (ret == SubGhzProtocolStatusOk)
-    {
+        if(!flipper_format_write_string_cstr(flipper_format, "Protocol", instance->generic.protocol_name)) break;
+
+        uint32_t count_bit = instance->generic.data_count_bit;
+        if(!flipper_format_write_uint32(flipper_format, "Bit", &count_bit, 1)) break;
+
+        char key_str[20];
+        snprintf(key_str, sizeof(key_str), "%016llX", instance->generic.data);
+        if(!flipper_format_write_string_cstr(flipper_format, "Key", key_str)) break;
+
         // Save CRC (last nibble)
         uint32_t crc = instance->generic.data & 0x0F;
-        flipper_format_write_uint32(flipper_format, "CRC", &crc, 1);
+        if(!flipper_format_write_uint32(flipper_format, "CRC", &crc, 1)) break;
 
         // Save decoded fields
-        flipper_format_write_uint32(flipper_format, "Serial", &instance->generic.serial, 1);
+        if(!flipper_format_write_uint32(flipper_format, "Serial", &instance->generic.serial, 1)) break;
 
         uint32_t temp = instance->generic.btn;
-        flipper_format_write_uint32(flipper_format, "Btn", &temp, 1);
+        if(!flipper_format_write_uint32(flipper_format, "Btn", &temp, 1)) break;
 
-        flipper_format_write_uint32(flipper_format, "Cnt", &instance->generic.cnt, 1);
+        if(!flipper_format_write_uint32(flipper_format, "Cnt", &instance->generic.cnt, 1)) break;
 
         // Save raw count before transformation (for exact reproduction)
         uint32_t raw_count = (uint16_t)((instance->generic.data >> 4) & 0xFFF);
-        flipper_format_write_uint32(flipper_format, "RawCnt", &raw_count, 1);
-    }
+        if(!flipper_format_write_uint32(flipper_format, "RawCnt", &raw_count, 1)) break;
+
+        ret = SubGhzProtocolStatusOk;
+    } while(0);
 
     return ret;
 }

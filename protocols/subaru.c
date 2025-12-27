@@ -496,25 +496,46 @@ SubGhzProtocolStatus subghz_protocol_decoder_subaru_serialize(
 
     SubGhzProtocolStatus ret = SubGhzProtocolStatusError;
 
-    ret = subghz_block_generic_serialize(&instance->generic, flipper_format, preset);
+    do {
+        if(preset) {
+            if(!flipper_format_write_uint32(flipper_format, "Frequency", &preset->frequency, 1)) break;
+            const char* preset_name = furi_string_get_cstr(preset->name);
+            if(!preset_name || preset_name[0] == '\0') {
+                preset_name = "AM650"; // Default fallback
+            }
+            if(!flipper_format_write_string_cstr(flipper_format, "Preset", preset_name)) break;
+        } else {
+            uint32_t default_freq = 433920000;
+            if(!flipper_format_write_uint32(flipper_format, "Frequency", &default_freq, 1)) break;
+            if(!flipper_format_write_string_cstr(flipper_format, "Preset", "AM650")) break;
+        }
 
-    if (ret == SubGhzProtocolStatusOk)
-    {
+        if(!flipper_format_write_string_cstr(flipper_format, "Protocol", instance->generic.protocol_name)) break;
+
+        uint32_t count_bit = instance->generic.data_count_bit;
+        if(!flipper_format_write_uint32(flipper_format, "Bit", &count_bit, 1)) break;
+
+        char key_str[20];
+        snprintf(key_str, sizeof(key_str), "%016llX", instance->generic.data);
+        if(!flipper_format_write_string_cstr(flipper_format, "Key", key_str)) break;
+
         // Subaru specific data - the counter uses special decoding
-        flipper_format_write_uint32(flipper_format, "Serial", &instance->serial, 1);
+        if(!flipper_format_write_uint32(flipper_format, "Serial", &instance->serial, 1)) break;
 
         uint32_t temp = instance->button;
-        flipper_format_write_uint32(flipper_format, "Btn", &temp, 1);
+        if(!flipper_format_write_uint32(flipper_format, "Btn", &temp, 1)) break;
 
         temp = instance->count;
-        flipper_format_write_uint32(flipper_format, "Cnt", &temp, 1);
+        if(!flipper_format_write_uint32(flipper_format, "Cnt", &temp, 1)) break;
 
         // Save raw data for exact reproduction
         uint32_t raw_high = (uint32_t)(instance->key >> 32);
         uint32_t raw_low = (uint32_t)(instance->key & 0xFFFFFFFF);
-        flipper_format_write_uint32(flipper_format, "DataHi", &raw_high, 1);
-        flipper_format_write_uint32(flipper_format, "DataLo", &raw_low, 1);
-    }
+        if(!flipper_format_write_uint32(flipper_format, "DataHi", &raw_high, 1)) break;
+        if(!flipper_format_write_uint32(flipper_format, "DataLo", &raw_low, 1)) break;
+
+        ret = SubGhzProtocolStatusOk;
+    } while(0);
 
     return ret;
 }

@@ -398,16 +398,46 @@ SubGhzProtocolStatus kia_protocol_decoder_v3_v4_serialize(
 
     SubGhzProtocolStatus ret = SubGhzProtocolStatusError;
 
-    ret = subghz_block_generic_serialize(&instance->generic, flipper_format, preset);
+    do {
+        if(preset) {
+            if(!flipper_format_write_uint32(flipper_format, "Frequency", &preset->frequency, 1)) break;
+            const char* preset_name = furi_string_get_cstr(preset->name);
+            if(!preset_name || preset_name[0] == '\0') {
+                preset_name = "AM650"; // Default fallback
+            }
+            if(!flipper_format_write_string_cstr(flipper_format, "Preset", preset_name)) break;
+        } else {
+            // Write some defaults if preset is NULL to avoid crash/invalid file
+            uint32_t default_freq = 433920000;
+            if(!flipper_format_write_uint32(flipper_format, "Frequency", &default_freq, 1)) break;
+            if(!flipper_format_write_string_cstr(flipper_format, "Preset", "AM650")) break;
+        }
 
-    if (ret == SubGhzProtocolStatusOk)
-    {
-        flipper_format_write_uint32(flipper_format, "Encrypted", &instance->encrypted, 1);
-        flipper_format_write_uint32(flipper_format, "Decrypted", &instance->decrypted, 1);
+        if(!flipper_format_write_string_cstr(flipper_format, "Protocol", instance->generic.protocol_name)) break;
+
+        uint32_t count_bit = instance->generic.data_count_bit;
+        if(!flipper_format_write_uint32(flipper_format, "Bit", &count_bit, 1)) break;
+
+        char key_str[20];
+        snprintf(key_str, sizeof(key_str), "%016llX", instance->generic.data);
+        if(!flipper_format_write_string_cstr(flipper_format, "Key", key_str)) break;
+
+        // Custom fields
+        if(!flipper_format_write_uint32(flipper_format, "Encrypted", &instance->encrypted, 1)) break;
+        if(!flipper_format_write_uint32(flipper_format, "Decrypted", &instance->decrypted, 1)) break;
 
         uint32_t temp = instance->version;
-        flipper_format_write_uint32(flipper_format, "Version", &temp, 1);
-    }
+        if(!flipper_format_write_uint32(flipper_format, "Version", &temp, 1)) break;
+
+        // Also save Serial/Btn/Cnt for consistency/debugging even if derived
+        if(!flipper_format_write_uint32(flipper_format, "Serial", &instance->generic.serial, 1)) break;
+        uint32_t temp_btn = instance->generic.btn;
+        if(!flipper_format_write_uint32(flipper_format, "Btn", &temp_btn, 1)) break;
+        uint32_t temp_cnt = instance->generic.cnt;
+        if(!flipper_format_write_uint32(flipper_format, "Cnt", &temp_cnt, 1)) break;
+
+        ret = SubGhzProtocolStatusOk;
+    } while(0);
 
     return ret;
 }
@@ -429,6 +459,16 @@ kia_protocol_decoder_v3_v4_deserialize(void *context, FlipperFormat *flipper_for
         if (flipper_format_read_uint32(flipper_format, "Version", &temp_version, 1))
         {
             instance->version = temp_version;
+        }
+
+        // Explicitly read Serial/Btn/Cnt to ensure display is correct
+        flipper_format_read_uint32(flipper_format, "Serial", &instance->generic.serial, 1);
+        uint32_t temp_val;
+        if (flipper_format_read_uint32(flipper_format, "Btn", &temp_val, 1)) {
+            instance->generic.btn = temp_val;
+        }
+        if (flipper_format_read_uint32(flipper_format, "Cnt", &temp_val, 1)) {
+            instance->generic.cnt = temp_val;
         }
     }
     return ret;

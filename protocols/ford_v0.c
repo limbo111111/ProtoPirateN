@@ -470,45 +470,48 @@ SubGhzProtocolStatus subghz_protocol_decoder_ford_v0_serialize(
     furi_assert(context);
     SubGhzProtocolDecoderFordV0 *instance = context;
 
-    SubGhzProtocolStatus ret = SubGhzProtocolStatusOk;
+    SubGhzProtocolStatus ret = SubGhzProtocolStatusError;
 
-    if (!subghz_block_generic_serialize(&instance->generic, flipper_format, preset))
-    {
-        ret = SubGhzProtocolStatusError;
-    }
+    do {
+        if(preset) {
+            if(!flipper_format_write_uint32(flipper_format, "Frequency", &preset->frequency, 1)) break;
+            const char* preset_name = furi_string_get_cstr(preset->name);
+            if(!preset_name || preset_name[0] == '\0') {
+                preset_name = "AM650"; // Default fallback
+            }
+            if(!flipper_format_write_string_cstr(flipper_format, "Preset", preset_name)) break;
+        } else {
+            uint32_t default_freq = 433920000;
+            if(!flipper_format_write_uint32(flipper_format, "Frequency", &default_freq, 1)) break;
+            if(!flipper_format_write_string_cstr(flipper_format, "Preset", "AM650")) break;
+        }
 
-    if (ret == SubGhzProtocolStatusOk)
-    {
+        if(!flipper_format_write_string_cstr(flipper_format, "Protocol", instance->generic.protocol_name)) break;
+
+        uint32_t count_bit = instance->generic.data_count_bit;
+        if(!flipper_format_write_uint32(flipper_format, "Bit", &count_bit, 1)) break;
+
+        char key_str[20];
+        snprintf(key_str, sizeof(key_str), "%016llX", instance->generic.data);
+        if(!flipper_format_write_string_cstr(flipper_format, "Key", key_str)) break;
+
         // Add Ford-specific data
         uint32_t temp = (instance->key2 >> 8) & 0xFF; // BS byte
-        if (!flipper_format_write_uint32(flipper_format, "BS", &temp, 1))
-        {
-            ret = SubGhzProtocolStatusError;
-        }
+        if(!flipper_format_write_uint32(flipper_format, "BS", &temp, 1)) break;
 
         temp = instance->key2 & 0xFF; // CRC byte
-        if (!flipper_format_write_uint32(flipper_format, "CRC", &temp, 1))
-        {
-            ret = SubGhzProtocolStatusError;
-        }
+        if(!flipper_format_write_uint32(flipper_format, "CRC", &temp, 1)) break;
 
         // Ensure serial, button, count are saved
-        if (!flipper_format_write_uint32(flipper_format, "Serial", &instance->serial, 1))
-        {
-            ret = SubGhzProtocolStatusError;
-        }
+        if(!flipper_format_write_uint32(flipper_format, "Serial", &instance->serial, 1)) break;
 
         temp = instance->button;
-        if (!flipper_format_write_uint32(flipper_format, "Btn", &temp, 1))
-        {
-            ret = SubGhzProtocolStatusError;
-        }
+        if(!flipper_format_write_uint32(flipper_format, "Btn", &temp, 1)) break;
 
-        if (!flipper_format_write_uint32(flipper_format, "Cnt", &instance->count, 1))
-        {
-            ret = SubGhzProtocolStatusError;
-        }
-    }
+        if(!flipper_format_write_uint32(flipper_format, "Cnt", &instance->count, 1)) break;
+
+        ret = SubGhzProtocolStatusOk;
+    } while(0);
 
     return ret;
 }

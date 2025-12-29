@@ -239,8 +239,8 @@ void kia_protocol_decoder_v2_feed(void *context, bool level, uint32_t duration)
                 DURATION_DIFF(duration, kia_protocol_v2_const.te_short) <
                 kia_protocol_v2_const.te_delta)
             {
-                // Increased threshold from 10 to 16 to reduce false positives
-                if (instance->header_count > 16 &&
+                // Increased threshold from 10 to 13 to reduce false positives, tuned for sensitivity
+                if (instance->header_count > 13 &&
                     DURATION_DIFF(instance->decoder.te_last, kia_protocol_v2_const.te_short) <
                         kia_protocol_v2_const.te_delta)
                 {

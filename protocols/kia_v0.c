@@ -576,12 +576,11 @@ void subghz_protocol_decoder_kia_feed(void *context, bool level, uint32_t durati
                     
                     if(kia_verify_crc(instance->generic.data)) {
                         FURI_LOG_I(TAG, "Valid signal received with correct CRC");
+                        if (instance->base.callback)
+                            instance->base.callback(&instance->base, instance->base.context);
                     } else {
                         FURI_LOG_W(TAG, "Signal received but CRC mismatch!");
                     }
-                    
-                    if (instance->base.callback)
-                        instance->base.callback(&instance->base, instance->base.context);
                 }
                 else
                 {

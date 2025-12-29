@@ -234,7 +234,8 @@ void kia_protocol_decoder_v1_feed(void *context, bool level, uint32_t duration)
                 kia_protocol_v1_const.te_delta)
             {
                 // Short LOW - this is the start of sync (0xCD ends: ...long H, short L, short H)
-                if (instance->header_count > 12)
+                // Increased threshold from 12 to 20 to reduce false positives
+                if (instance->header_count > 20)
                 {
                     instance->decoder.parser_step = KiaV1DecoderStepFoundShortLow;
                 }

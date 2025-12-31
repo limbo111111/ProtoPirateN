@@ -136,14 +136,12 @@ bool protopirate_history_add_to_history(
     item->preset->data_size = preset->data_size;
 
     // Get string representation
-    FuriString* text = furi_string_alloc();
-    subghz_protocol_decoder_base_get_string(decoder_base, text);
-    furi_string_set(item->item_str, text);
+    // Optimization: Write directly to item->item_str to avoid temporary allocation and copy
+    furi_string_reset(item->item_str);
+    subghz_protocol_decoder_base_get_string(decoder_base, item->item_str);
 
     // Serialize to flipper format
     subghz_protocol_decoder_base_serialize(decoder_base, item->flipper_format, preset);
-
-    furi_string_free(text);
 
     instance->last_index++;
 

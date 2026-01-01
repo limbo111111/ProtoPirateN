@@ -63,7 +63,8 @@ static void protopirate_scene_receiver_callback(
     FURI_LOG_I(TAG, "%s", furi_string_get_cstr(str_buff));
 
     // Add to history
-    if(protopirate_history_add_to_history(app->txrx->history, decoder_base, app->txrx->preset)) {
+    if(protopirate_history_add_to_history(
+           app->txrx->history, decoder_base, app->txrx->preset, str_buff)) {
         notification_message(app->notifications, &sequence_semi_success);
 
         FURI_LOG_I(

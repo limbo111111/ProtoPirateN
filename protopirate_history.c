@@ -94,12 +94,13 @@ static void protopirate_history_item_free(ProtoPirateHistoryItem* item) {
 bool protopirate_history_add_to_history(
     ProtoPirateHistory* instance,
     void* context,
-    SubGhzRadioPreset* preset) {
+    SubGhzRadioPreset* preset,
+    FuriString* history_item_str) {
     furi_assert(instance);
     furi_assert(context);
 
     SubGhzProtocolDecoderBase* decoder_base = context;
-    
+
     // Check for duplicate (same hash within 500ms)
     if((instance->code_last_hash_data ==
         subghz_protocol_decoder_base_get_hash_data(decoder_base)) &&
@@ -138,7 +139,11 @@ bool protopirate_history_add_to_history(
     // Get string representation
     // Optimization: Write directly to item->item_str to avoid temporary allocation and copy
     furi_string_reset(item->item_str);
-    subghz_protocol_decoder_base_get_string(decoder_base, item->item_str);
+    if(history_item_str) {
+        furi_string_set(item->item_str, history_item_str);
+    } else {
+        subghz_protocol_decoder_base_get_string(decoder_base, item->item_str);
+    }
 
     // Serialize to flipper format
     subghz_protocol_decoder_base_serialize(decoder_base, item->flipper_format, preset);

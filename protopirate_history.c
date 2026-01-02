@@ -109,14 +109,23 @@ bool protopirate_history_add_to_history(
         return false;
     }
 
+    FuriString* reuse_item_str = NULL;
+    SubGhzRadioPreset* reuse_preset = NULL;
+
     // If history is full, remove the oldest entry
     if(ProtoPirateHistoryItemArray_size(instance->data) >= KIA_HISTORY_MAX) {
         ProtoPirateHistoryItem* oldest = ProtoPirateHistoryItemArray_get(instance->data, 0);
         if(oldest) {
+            // Reuse resources to reduce heap churn
+            reuse_item_str = oldest->item_str;
+            oldest->item_str = NULL;
+
+            reuse_preset = oldest->preset;
+            oldest->preset = NULL;
+
             protopirate_history_item_free(oldest);
         }
         ProtoPirateHistoryItemArray_pop_at(NULL, instance->data, 0);
-        FURI_LOG_D(TAG, "History full, removed oldest entry");
     }
 
     instance->code_last_hash_data = subghz_protocol_decoder_base_get_hash_data(decoder_base);
@@ -124,14 +133,26 @@ bool protopirate_history_add_to_history(
 
     // Create a new history item
     ProtoPirateHistoryItem* item = ProtoPirateHistoryItemArray_push_raw(instance->data);
-    item->item_str = furi_string_alloc();
+
+    if(reuse_item_str) {
+        item->item_str = reuse_item_str;
+        furi_string_reset(item->item_str);
+    } else {
+        item->item_str = furi_string_alloc();
+    }
+
     item->flipper_format = flipper_format_string_alloc();
     item->type = 0;
 
     // Copy preset
-    item->preset = malloc(sizeof(SubGhzRadioPreset));
+    if(reuse_preset) {
+        item->preset = reuse_preset;
+    } else {
+        item->preset = malloc(sizeof(SubGhzRadioPreset));
+        item->preset->name = furi_string_alloc();
+    }
+
     item->preset->frequency = preset->frequency;
-    item->preset->name = furi_string_alloc();
     furi_string_set(item->preset->name, preset->name);
     item->preset->data = preset->data;
     item->preset->data_size = preset->data_size;
@@ -150,9 +171,11 @@ bool protopirate_history_add_to_history(
 
     instance->last_index++;
 
-    FURI_LOG_I(TAG, "Added item %u to history (size: %zu)", 
-               instance->last_index, 
-               ProtoPirateHistoryItemArray_size(instance->data));
+    FURI_LOG_I(
+        TAG,
+        "Added item %u to history (size: %zu)",
+        instance->last_index,
+        ProtoPirateHistoryItemArray_size(instance->data));
 
     return true;
 }

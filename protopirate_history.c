@@ -169,8 +169,6 @@ bool protopirate_history_add_to_history(
     // Serialize to flipper format
     subghz_protocol_decoder_base_serialize(decoder_base, item->flipper_format, preset);
 
-    furi_string_free(text);
-
     instance->last_index++;
 
     FURI_LOG_I(

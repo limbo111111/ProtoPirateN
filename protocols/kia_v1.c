@@ -2,6 +2,11 @@
 
 #define TAG "KiaV1"
 
+// Potential Manufacturer Keys (User provided, usage unverified)
+// 3729550404570830
+// 1203684A40104728
+// 402087D2395BAA50
+
 // OOK PCM 800µs timing
 static const SubGhzBlockConst kia_protocol_v1_const = {
     .te_short = 800,

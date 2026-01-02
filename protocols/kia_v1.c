@@ -570,80 +570,41 @@ LevelDuration kia_protocol_encoder_v1_yield(void* context)
 
     LevelDuration result;
 
-    // Preamble: Alternating 1 0 1 0 ...
-    // Manchester: 1->HL, 0->LH.
-    // 10 -> H L L H. (H Short, L Long, H Short).
-    // We send 16 pairs (32 bits in duration, 32 header counts in Decoder).
-    // Loop 0..31.
-    // Actually, simpler generation:
-    // Preamble logic:
-    // Bits: 1, 0, 1, 0 ...
-    // Total 16 pairs.
-    // Pulse sequence for `1 0`:
-    // `1` (HL) `0` (LH).
-    // H (Short), L (Long), H (Short).
-    // Wait, this is 3 pulses for 2 bits.
-    // Let's generate purely by pulses to match Decoder expectation of "te_long".
-    // 16 pairs = 16 Long Highs, 16 Long Lows?
-    // Decoder `CheckPreamble` accepts te_long High OR Low.
-    // Manchester `1 0 1 0`:
-    // `1`(HL) `0`(LH) -> H(S) L(L) H(S).
-    // `1`(HL) `0`(LH) -> H(S) L(L) H(S).
-    // Join: H(S) L(L) H(S) + H(S) L(L) H(S).
-    // Center: H(S) + H(S) = H(L).
-    // So `1 0 1 0`: H(S), L(L), H(L), L(L), H(L)...
-    // This gives us the stream of Long pulses.
-    // We need to start with Short H?
-    // `1 0`: H(S) L(L) H(S).
-    // Next `1 0`: H(S) L(L) H(S).
-    // Join: `H(S)` + `H(S)` -> `H(L)`.
-    // So sequence: H(S) [start], L(L), H(L), L(L), H(L) ...
+    // Preamble:
+    // Based on analysis, the preamble consists of alternating long pulses.
+    // This is achieved by sending Manchester '10' sequences repeatedly, where the transitions merge.
+    // Sequence: Short High (Start), then Alternating Long Low/High pulses.
 
-    // We want 16 pairs.
-    // Steps:
-    // 0: Short High (Start).
-    // 1..30: Alternating Long Low, Long High. (30 pulses).
-    // 31: End of Preamble loop?
-
-    // Let's use `preamble_count` as pulse index.
-
-    // Pulse 0: Short High.
+    // Pulse 0: Short High (Start pulse)
     if(instance->preamble_count == 0) {
         result = level_duration_make(true, kia_protocol_v1_const.te_short);
     }
-    // Pulses 1..32: Alternating Long Low, Long High.
+    // Pulses 1..32: Alternating Long Low, Long High (Preamble body)
     else if(instance->preamble_count <= 32) {
         bool is_high = (instance->preamble_count % 2) == 0;
         result = level_duration_make(is_high, kia_protocol_v1_const.te_long);
     }
-    // Sync:
-    // We just finished a Long pulse.
-    // If count=32 (Even) -> High. So we ended High.
-    // Sync bit `0` (LH).
-    // Previous ended High.
-    // Sync starts Low (Short). Then High (Short).
-    // Transition H->L ok.
-    // Pulse 33: Short Low.
+    // Sync Sequence:
+    // Preamble ended High. Sync starts with Short Low, followed by Short High.
+    // This matches the decoder expectation for the sync pattern.
+
+    // Pulse 33: Short Low (Sync 1)
     else if(instance->preamble_count == 33) {
         result = level_duration_make(false, kia_protocol_v1_const.te_short);
     }
-    // Pulse 34: Short High.
+    // Pulse 34: Short High (Sync 2)
     else if(instance->preamble_count == 34) {
         result = level_duration_make(true, kia_protocol_v1_const.te_short);
     }
-    // Data: 56 bits.
-    // Manchester: 1->HL, 0->LH.
-    // Current state: Ended High (from Sync).
-    // Loop bits 0..55.
-    // `preamble_count` 35 starts data.
-    // Each bit takes 2 periods (2 pulses).
-    // Total 56 * 2 = 112 pulses.
-    // Range: 35 to 35+111 = 146.
+    // Data Payload: 56 bits Manchester encoded.
+    // 1 -> HL, 0 -> LH.
+    // MSB First.
+    // Total pulses: 56 * 2 = 112. Range: 35 to 146.
     else if(instance->preamble_count < 147) {
         uint32_t bit_idx = (instance->preamble_count - 35) / 2;
         bool first_half = ((instance->preamble_count - 35) % 2) == 0;
 
-        // Get bit (MSB first? Decoder: data << 1. So MSB sent first).
+        // Get bit (MSB first)
         bool bit = (instance->generic.data >> (55 - bit_idx)) & 1;
 
         // Manchester:

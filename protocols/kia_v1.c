@@ -2,6 +2,9 @@
 
 #define TAG "KiaV1"
 
+#define KIA_V1_INTER_BURST_GAP_US 40000
+#define KIA_V1_TOTAL_BURSTS 4
+
 // Potential Manufacturer Keys (User provided, usage unverified)
 // 3729550404570830
 // 1203684A40104728
@@ -36,6 +39,24 @@ struct SubGhzProtocolEncoderKiaV1 {
     uint8_t current_burst;
     bool sending_gap;
 };
+
+static uint8_t kia_v1_calculate_crc(uint64_t data) {
+    uint8_t crc = 0;
+    // Calculate CRC over bits 8-55 (Serial, Btn, Cnt)
+    // 6 bytes total: 4 bytes Serial, 1 byte Btn, 1 byte Cnt
+    for(int i = 6; i >= 1; i--) {
+        uint8_t byte = (data >> (i * 8)) & 0xFF;
+        crc ^= byte;
+        for(int j = 0; j < 8; j++) {
+            if(crc & 0x80) {
+                crc = (crc << 1) ^ 0x7F;
+            } else {
+                crc <<= 1;
+            }
+        }
+    }
+    return crc;
+}
 
 typedef enum {
     KiaV1DecoderStepReset = 0,

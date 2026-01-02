@@ -16,7 +16,8 @@ uint16_t protopirate_history_get_last_index(ProtoPirateHistory* instance);
 bool protopirate_history_add_to_history(
     ProtoPirateHistory* instance,
     void* context,
-    SubGhzRadioPreset* preset);
+    SubGhzRadioPreset* preset,
+    FuriString* history_item_str);
 void protopirate_history_get_text_item_menu(
     ProtoPirateHistory* instance,
     FuriString* output,
